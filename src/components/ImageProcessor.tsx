@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { ImageProcessor as ImageProcessorUtil, ProcessedImage } from '../utils/imageProcessor';
 import Image from 'next/image';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ImageProcessorProps {
   imageFile: File;
@@ -85,189 +90,110 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
     }
   };
 
-  const renderCompressionResult = (targetSize: number) => {
-    if (!processedImage) return null;
-
-    const currentSize = processedImage.size / 1024;
-    const isOverSize = currentSize > targetSize;
-    const difference = currentSize - targetSize;
-
-    return (
-      <div className="mt-2">
-        <div className="flex items-center justify-between mb-2">
-          <span className={`text-sm ${isOverSize ? 'text-red-500' : 'text-green-500'}`}>
-            当前大小: {currentSize.toFixed(1)}KB
-          </span>
-          <span className={`text-sm ${isOverSize ? 'text-red-500' : 'text-green-500'}`}>
-            {isOverSize 
-              ? `超出 ${difference.toFixed(1)}KB` 
-              : '已达标'}
-          </span>
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <h3 className="font-medium">处理单张图片</h3>
+          <p className="text-sm text-muted-foreground">
+            点击图片区域可更换图片
+          </p>
         </div>
-        {isOverSize && (
-          <button
-            onClick={() => handleCompressToSize(targetSize, processedImage.file)}
-            className="w-full mt-1 px-3 py-2 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
+        <Button
+          variant="ghost"
+          onClick={onReset}
+        >
+          重新上传
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <div 
+            className="relative w-full aspect-[16/9] cursor-pointer group"
+            onClick={handleImageClick}
+          >
+            {previewUrl && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Image
+                  src={previewUrl}
+                  alt="预览图"
+                  fill
+                  className="rounded-lg object-contain"
+                  unoptimized
+                  priority
+                />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center rounded-lg">
+              <Upload className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {isProcessing && (
+        <div className="space-y-2">
+          <Progress value={progress} />
+          <p className="text-sm text-muted-foreground text-center">
+            处理中... {progress}%
+          </p>
+        </div>
+      )}
+
+      <div className="grid gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Button
+            variant={selectedFormat === 'original' ? 'default' : 'outline'}
+            onClick={() => setSelectedFormat('original')}
+          >
+            保留原格式
+          </Button>
+          <Button
+            variant={selectedFormat === 'webp' ? 'default' : 'outline'}
+            onClick={() => setSelectedFormat('webp')}
+          >
+            转换为WebP
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <Button
+            onClick={() => handleCompressToSize(200)}
+            className="w-full"
             disabled={isProcessing}
           >
-            继续压缩 ({currentSize.toFixed(1)}KB → {targetSize}KB)
-          </button>
+            压缩到200KB以内
+          </Button>
+          <Button
+            onClick={() => handleCompressToSize(500)}
+            className="w-full"
+            disabled={isProcessing}
+          >
+            压缩到500KB以内
+          </Button>
+        </div>
+
+        {processedImage && (
+          <Button
+            variant="success"
+            onClick={handleDownload}
+            className="w-full"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            下载处理后的图片
+          </Button>
         )}
       </div>
-    );
-  };
 
-  if (!imageFile || !previewUrl) {
-    return null;
-  }
-
-  const originalSize = (imageFile.size / 1024).toFixed(2);
-  const compressionRatio = processedImage 
-    ? ((1 - processedImage.size / imageFile.size) * 100).toFixed(1)
-    : null;
-
-  return (
-    <div className="mt-8">
       <input
         ref={fileInputRef}
         type="file"
+        className="hidden"
         accept="image/*"
         multiple
         onChange={handleFileChange}
-        className="hidden"
       />
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">图片处理</h2>
-        <button
-          onClick={onReset}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-        >
-          重新上传
-        </button>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div 
-          className="aspect-w-16 aspect-h-9 mb-4 cursor-pointer group relative"
-          onClick={handleImageClick}
-        >
-          {previewUrl && (
-            <div className="relative w-full h-full">
-              <Image
-                src={previewUrl}
-                alt="预览图"
-                fill
-                className="rounded-lg object-contain"
-                unoptimized
-                loader={({ src }) => src}
-              />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
-            <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              点击更换图片
-            </span>
-          </div>
-        </div>
-        
-        {isProcessing && (
-          <div className="mb-4">
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-600 mt-1">处理中... {progress}%</p>
-          </div>
-        )}
-
-        <div className="text-sm text-gray-600 mb-4">
-          <p>原始大小: {originalSize} KB</p>
-          {processedImage && (
-            <>
-              <p>处理后大小: {(processedImage.size / 1024).toFixed(2)} KB</p>
-              <p>压缩率: {compressionRatio}%</p>
-              <p>尺寸: {processedImage.width} x {processedImage.height}</p>
-            </>
-          )}
-        </div>
-
-        <div className="border-t pt-4">
-          <h3 className="font-semibold mb-2">选择输出格式</h3>
-          <div className="flex gap-4 mb-4">
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="format"
-                value="original"
-                checked={selectedFormat === 'original'}
-                onChange={(e) => setSelectedFormat(e.target.value as 'original' | 'webp')}
-                className="hidden"
-              />
-              <div className={`p-3 border rounded-lg text-center cursor-pointer transition-all ${
-                selectedFormat === 'original' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                  : 'border-gray-200 hover:border-blue-200'
-              }`}>
-                保留原格式
-              </div>
-            </label>
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="format"
-                value="webp"
-                checked={selectedFormat === 'webp'}
-                onChange={(e) => setSelectedFormat(e.target.value as 'original' | 'webp')}
-                className="hidden"
-              />
-              <div className={`p-3 border rounded-lg text-center cursor-pointer transition-all ${
-                selectedFormat === 'webp' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                  : 'border-gray-200 hover:border-blue-200'
-              }`}>
-                转换为WebP
-              </div>
-            </label>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <button
-                onClick={() => handleCompressToSize(200)}
-                className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                disabled={isProcessing}
-              >
-                压缩到200KB以内
-              </button>
-              {processedImage && renderCompressionResult(200)}
-            </div>
-
-            <div>
-              <button
-                onClick={() => handleCompressToSize(500)}
-                className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                disabled={isProcessing}
-              >
-                压缩到500KB以内
-              </button>
-              {processedImage && renderCompressionResult(500)}
-            </div>
-          </div>
-        </div>
-        
-        {processedImage && (
-          <div className="mt-4">
-            <button
-              onClick={handleDownload}
-              className="w-full bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600"
-            >
-              下载处理后的图片
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
