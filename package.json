@@ -4,17 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npx tailwindcss -o dist/output.css --minify",
+    "build": "next build",
     "start": "next start",
-    "lint": "next lint --fix",
-    "postbuild": "next-on-netlify"
+    "lint": "next lint --fix"
   },
   "dependencies": {
     "react": "^18",
     "react-dom": "^18",
     "next": "14.1.4",
     "react-dropzone": "^14.2.3",
-    "@tailwindcss/aspect-ratio": "^0.4.2"
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@netlify/plugin-nextjs": "^4.41.3"
   },
   "devDependencies": {
     "typescript": "^5",
