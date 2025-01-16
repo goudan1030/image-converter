@@ -176,9 +176,9 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
 
         {processedImage && (
           <Button
-            variant="success"
+            variant="default"
             onClick={handleDownload}
-            className="w-full"
+            className="w-full bg-green-500 hover:bg-green-600"
           >
             <Download className="mr-2 h-4 w-4" />
             下载处理后的图片
