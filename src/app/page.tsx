@@ -16,10 +16,6 @@ export default function Home() {
     setSelectedImages([]);
   };
 
-  const handleMultipleFiles = (files: File[]) => {
-    setSelectedImages(files);
-  };
-
   return (
     <main className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-2xl mx-auto px-4">
@@ -31,7 +27,7 @@ export default function Home() {
           <ImageProcessor 
             imageFile={selectedImages[0]}
             onReset={handleReset}
-            onMultipleFiles={handleMultipleFiles}
+            onMultipleFiles={handleImageUpload}
           />
         ) : selectedImages.length > 1 && (
           <BatchProcessor 
