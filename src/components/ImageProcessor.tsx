@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { ImageProcessor as ImageProcessorUtil, ProcessedImage } from '../utils/imageProcessor';
+import Image from 'next/image';
 
 interface ImageProcessorProps {
-  imageFile: File | null;
+  imageFile: File;
   onReset: () => void;
+  onMultipleFiles?: (files: File[]) => void;
 }
 
-const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onReset }) => {
+const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onReset, onMultipleFiles }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,33 +51,12 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
     return () => clearInterval(interval);
   };
 
-  const handleResize = async () => {
-    if (!imageFile) return;
-    
+  const handleCompressToSize = async (targetSizeKB: number, sourceFile: File = imageFile) => {
     setIsProcessing(true);
     const cleanup = simulateProgress();
     
     try {
-      const result = await ImageProcessorUtil.resizeImage(imageFile, 1280, 720);
-      setProcessedImage(result);
-      setPreviewUrl(result.url);
-      setProgress(100);
-    } catch (error) {
-      console.error('调整大小失败:', error);
-    } finally {
-      cleanup();
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCompressToSize = async (targetSizeKB: number) => {
-    if (!imageFile) return;
-    
-    setIsProcessing(true);
-    const cleanup = simulateProgress();
-    
-    try {
-      const result = await ImageProcessorUtil.compressToTargetSize(imageFile, targetSizeKB, selectedFormat);
+      const result = await ImageProcessorUtil.compressToTargetSize(sourceFile, targetSizeKB, selectedFormat);
       setProcessedImage(result);
       setPreviewUrl(result.url);
       setProgress(100);
@@ -93,24 +74,47 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files && files[0]) {
-      const newFile = files[0];
+    if (files && files.length > 0) {
       event.target.value = '';
       onReset();
-      setTimeout(() => {
-        handleImageUpload(newFile);
-      }, 0);
+      if (files.length === 1) {
+        onMultipleFiles?.([files[0]]);
+      } else if (files.length > 1) {
+        onMultipleFiles?.(Array.from(files));
+      }
     }
   };
 
-  const handleImageUpload = (file: File) => {
-    onReset();
-    setTimeout(() => {
-      const event = new CustomEvent('newImageSelected', { 
-        detail: { file } 
-      });
-      window.dispatchEvent(event);
-    }, 0);
+  const renderCompressionResult = (targetSize: number) => {
+    if (!processedImage) return null;
+
+    const currentSize = processedImage.size / 1024;
+    const isOverSize = currentSize > targetSize;
+    const difference = currentSize - targetSize;
+
+    return (
+      <div className="mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className={`text-sm ${isOverSize ? 'text-red-500' : 'text-green-500'}`}>
+            当前大小: {currentSize.toFixed(1)}KB
+          </span>
+          <span className={`text-sm ${isOverSize ? 'text-red-500' : 'text-green-500'}`}>
+            {isOverSize 
+              ? `超出 ${difference.toFixed(1)}KB` 
+              : '已达标'}
+          </span>
+        </div>
+        {isOverSize && (
+          <button
+            onClick={() => handleCompressToSize(targetSize, processedImage.file)}
+            className="w-full mt-1 px-3 py-2 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
+            disabled={isProcessing}
+          >
+            继续压缩 ({currentSize.toFixed(1)}KB → {targetSize}KB)
+          </button>
+        )}
+      </div>
+    );
   };
 
   if (!imageFile || !previewUrl) {
@@ -128,8 +132,9 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        className="hidden"
+        multiple
         onChange={handleFileChange}
+        className="hidden"
       />
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">图片处理</h2>
@@ -146,10 +151,12 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
           className="aspect-w-16 aspect-h-9 mb-4 cursor-pointer group relative"
           onClick={handleImageClick}
         >
-          <img
+          <Image
             src={previewUrl}
             alt="预览图"
-            className="rounded-lg object-contain w-full h-full"
+            fill
+            className="rounded-lg object-contain"
+            unoptimized
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
             <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -220,21 +227,28 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
             </label>
           </div>
 
-          <div className="space-y-2">
-            <button
-              onClick={() => handleCompressToSize(200)}
-              className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-              disabled={isProcessing}
-            >
-              压缩到200KB以内
-            </button>
-            <button
-              onClick={() => handleCompressToSize(500)}
-              className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-              disabled={isProcessing}
-            >
-              压缩到500KB以内
-            </button>
+          <div className="space-y-4">
+            <div>
+              <button
+                onClick={() => handleCompressToSize(200)}
+                className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                disabled={isProcessing}
+              >
+                压缩到200KB以内
+              </button>
+              {processedImage && renderCompressionResult(200)}
+            </div>
+
+            <div>
+              <button
+                onClick={() => handleCompressToSize(500)}
+                className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                disabled={isProcessing}
+              >
+                压缩到500KB以内
+              </button>
+              {processedImage && renderCompressionResult(500)}
+            </div>
           </div>
         </div>
         

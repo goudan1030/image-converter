@@ -2,22 +2,27 @@ import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 
 interface ImageUploaderProps {
-  onImageUpload: (file: File) => void;
+  onImageUpload: (files: File[]) => void;
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
-      onImageUpload(acceptedFiles[0]);
+      onImageUpload(acceptedFiles);
     }
   }, [onImageUpload]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif']
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/gif': ['.gif'],
+      'image/webp': ['.webp']
     },
-    multiple: false
+    multiple: true,
+    maxFiles: 10,
+    maxSize: 10485760,
   });
 
   return (
@@ -29,7 +34,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
       {isDragActive ? (
         <p className="text-gray-600">将图片拖放到这里...</p>
       ) : (
-        <p className="text-gray-600">点击或拖放图片到这里上传</p>
+        <div className="space-y-2">
+          <p className="text-gray-600">点击或拖放图片到这里上传</p>
+          <p className="text-sm text-gray-500">支持多张图片同时上传（最多10张）</p>
+          <p className="text-sm text-gray-500">支持 JPG、PNG、GIF、WebP 格式</p>
+          <p className="text-sm text-gray-500">单个文件大小不超过10MB</p>
+        </div>
       )}
     </div>
   );
