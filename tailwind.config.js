@@ -16,4 +16,10 @@ module.exports = {
   plugins: [
     require('@tailwindcss/aspect-ratio'),
   ],
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
+  experimental: {
+    optimizeUniversalDefaults: true,
+  },
 }; 

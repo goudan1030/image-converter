@@ -2,22 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 添加一些全局样式 */
-body {
-  @apply bg-gray-100;
+@layer base {
+  body {
+    @apply bg-gray-100;
+  }
 }
 
-.aspect-w-16 {
-  position: relative;
-  padding-bottom: 56.25%; /* 16:9 */
-}
+@layer components {
+  .aspect-w-16 {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 */
+  }
 
-.aspect-w-16 > * {
-  position: absolute;
-  height: 100%;
-  width: 100%;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  .aspect-w-16 > * {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
 }
