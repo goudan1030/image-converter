@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npx tailwindcss -o dist/output.css --minify",
     "start": "next start",
-    "lint": "next lint --fix"
+    "lint": "next lint --fix",
+    "postbuild": "next-on-netlify"
   },
   "dependencies": {
     "react": "^18",
