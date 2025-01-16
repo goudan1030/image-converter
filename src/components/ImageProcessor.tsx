@@ -151,13 +151,18 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
           className="aspect-w-16 aspect-h-9 mb-4 cursor-pointer group relative"
           onClick={handleImageClick}
         >
-          <Image
-            src={previewUrl}
-            alt="预览图"
-            fill
-            className="rounded-lg object-contain"
-            unoptimized
-          />
+          {previewUrl && (
+            <div className="relative w-full h-full">
+              <Image
+                src={previewUrl}
+                alt="预览图"
+                fill
+                className="rounded-lg object-contain"
+                unoptimized
+                loader={({ src }) => src}
+              />
+            </div>
+          )}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
             <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               点击更换图片

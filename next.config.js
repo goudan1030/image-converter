@@ -3,13 +3,23 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
+    domains: ['localhost'],
+    unoptimized: true,
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
     remotePatterns: [
       {
-        protocol: 'blob',
+        protocol: 'https',
         hostname: '**',
       },
     ],
-    unoptimized: true,
+  },
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.(jpg|jpeg|png|gif|webp)$/i,
+      type: 'asset/resource',
+    });
+    return config;
   },
 };
 
