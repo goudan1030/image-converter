@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
-import { ImageProcessor as ImageProcessorUtil, ProcessedImage } from '../utils/imageProcessor';
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { ImageProcessor as ImageProcessorUtil } from '../utils/imageProcessor';
+import { Download } from "lucide-react";
 
 interface BatchProcessorProps {
   imageFiles: File[];
@@ -8,54 +12,100 @@ interface BatchProcessorProps {
 
 interface ProcessingImage {
   file: File;
+  processed: {
+    url: string;
+    file: File;
+    size: number;
+  } | null;
   progress: number;
-  processed?: ProcessedImage;
   error?: string;
 }
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) => {
   const [selectedFormat, setSelectedFormat] = useState<'original' | 'webp'>('original');
-  const [processingImages, setProcessingImages] = useState<ProcessingImage[]>(
-    imageFiles.map(file => ({ file, progress: 0 }))
-  );
+  const [processingImages, setProcessingImages] = useState<ProcessingImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [totalProgress, setTotalProgress] = useState(0);
+  const [allCompleted, setAllCompleted] = useState(false);
+
+  useEffect(() => {
+    setProcessingImages(imageFiles.map(file => ({
+      file,
+      processed: null,
+      progress: 0
+    })));
+    setAllCompleted(false);
+    setTotalProgress(0);
+  }, [imageFiles]);
 
   const updateImageProgress = (index: number, progress: number) => {
-    setProcessingImages(prev => prev.map((img, i) => 
-      i === index ? { ...img, progress } : img
-    ));
-  };
-
-  const updateProcessedImage = (index: number, processed: ProcessedImage) => {
-    setProcessingImages(prev => prev.map((img, i) => 
-      i === index ? { ...img, processed } : img
-    ));
+    setProcessingImages(prev => {
+      const newImages = [...prev];
+      newImages[index].progress = progress;
+      
+      // 重新计算总进度
+      const newTotalProgress = newImages.reduce((sum, img) => sum + img.progress, 0) / newImages.length;
+      setTotalProgress(newTotalProgress);
+      
+      return newImages;
+    });
   };
 
   const handleCompressAll = async (targetSizeKB: number) => {
     setIsProcessing(true);
-    
-    for (let i = 0; i < processingImages.length; i++) {
-      const img = processingImages[i];
-      if (img.processed) continue;
+    setAllCompleted(false);
+    setTotalProgress(0);
+    let completedCount = 0;
 
-      try {
-        updateImageProgress(i, 10);
-        const result = await ImageProcessorUtil.compressToTargetSize(
-          img.file,
-          targetSizeKB,
-          selectedFormat
-        );
-        updateImageProgress(i, 100);
-        updateProcessedImage(i, result);
-      } catch (error) {
-        setProcessingImages(prev => prev.map((img, idx) => 
-          idx === i ? { ...img, error: '处理失败' } : img
-        ));
-      }
+    try {
+      // 使用 Promise.all 并行处理所有图片
+      await Promise.all(processingImages.map(async (img, index) => {
+        try {
+          // 更新开始处理状态
+          updateImageProgress(index, 10);
+
+          // 处理图片
+          const result = await ImageProcessorUtil.compressToTargetSize(
+            img.file,
+            targetSizeKB,
+            selectedFormat // 使用选择的格式
+          );
+
+          // 更新处理结果
+          setProcessingImages(prev => {
+            const newImages = [...prev];
+            newImages[index] = {
+              ...newImages[index],
+              processed: result,
+              progress: 100
+            };
+            return newImages;
+          });
+
+          completedCount++;
+          updateImageProgress(index, 100);
+
+          // 检查是否所有图片都处理完成
+          if (completedCount === processingImages.length) {
+            setAllCompleted(true);
+            setTotalProgress(100);
+          }
+        } catch (error) {
+          console.error('处理失败:', error);
+          setProcessingImages(prev => {
+            const newImages = [...prev];
+            newImages[index] = {
+              ...newImages[index],
+              error: '处理失败',
+              progress: 0
+            };
+            return newImages;
+          });
+        }
+      }));
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setIsProcessing(false);
   };
 
   const handleDownloadAll = () => {
@@ -63,7 +113,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
       if (img.processed) {
         const link = document.createElement('a');
         link.href = img.processed.url;
-        link.download = `processed_${img.file.name}`;
+        // 根据选择的格式设置文件扩展名
+        const extension = selectedFormat === 'webp' ? '.webp' : 
+          img.file.name.substring(img.file.name.lastIndexOf('.'));
+        const fileName = img.file.name.substring(0, img.file.name.lastIndexOf('.'));
+        link.download = `processed_${fileName}${extension}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -72,115 +126,103 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
   };
 
   return (
-    <div className="mt-8">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">批量处理图片</h2>
-        <button
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <h3 className="font-medium">批量处理图片</h3>
+          <p className="text-sm text-muted-foreground">
+            共 {imageFiles.length} 张图片
+          </p>
+        </div>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+          disabled={isProcessing}
         >
           重新上传
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="mb-4">
-          <h3 className="font-semibold mb-2">选择输出格式</h3>
-          <div className="flex gap-4 mb-4">
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="format"
-                value="original"
-                checked={selectedFormat === 'original'}
-                onChange={(e) => setSelectedFormat(e.target.value as 'original' | 'webp')}
-                className="hidden"
-              />
-              <div className={`p-3 border rounded-lg text-center cursor-pointer transition-all ${
-                selectedFormat === 'original' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                  : 'border-gray-200 hover:border-blue-200'
-              }`}>
-                保留原格式
-              </div>
-            </label>
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="format"
-                value="webp"
-                checked={selectedFormat === 'webp'}
-                onChange={(e) => setSelectedFormat(e.target.value as 'original' | 'webp')}
-                className="hidden"
-              />
-              <div className={`p-3 border rounded-lg text-center cursor-pointer transition-all ${
-                selectedFormat === 'webp' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                  : 'border-gray-200 hover:border-blue-200'
-              }`}>
-                转换为WebP
-              </div>
-            </label>
+      <Card>
+        <CardHeader>
+          <CardTitle>选择输出格式</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <Button
+              variant={selectedFormat === 'original' ? 'default' : 'outline'}
+              onClick={() => setSelectedFormat('original')}
+              disabled={isProcessing}
+              className="w-full"
+            >
+              保留原格式
+            </Button>
+            <Button
+              variant={selectedFormat === 'webp' ? 'default' : 'outline'}
+              onClick={() => setSelectedFormat('webp')}
+              disabled={isProcessing}
+              className="w-full"
+            >
+              转换为WebP
+            </Button>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="space-y-4">
-          {processingImages.map((img, index) => (
-            <div key={index} className="border rounded-lg p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">{img.file.name}</span>
-                <span className="text-sm text-gray-500">
-                  {(img.file.size / 1024).toFixed(2)} KB
-                </span>
-              </div>
-              
-              {img.processed ? (
-                <div className="text-sm text-gray-600">
-                  <p>处理后大小: {(img.processed.size / 1024).toFixed(2)} KB</p>
-                  <p>压缩率: {((1 - img.processed.size / img.file.size) * 100).toFixed(1)}%</p>
-                </div>
-              ) : (
-                <div className="h-2 bg-gray-200 rounded-full">
-                  <div 
-                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                    style={{ width: `${img.progress}%` }}
-                  />
-                </div>
-              )}
-              
-              {img.error && (
-                <p className="text-sm text-red-500 mt-1">{img.error}</p>
-              )}
+      <div className="space-y-4">
+        {processingImages.map((img, index) => (
+          <div key={index} className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>{img.file.name}</span>
+              <span>
+                {img.processed 
+                  ? `${(img.processed.size / 1024).toFixed(1)}KB` 
+                  : `${(img.file.size / 1024).toFixed(1)}KB`}
+              </span>
             </div>
-          ))}
-        </div>
+            <Progress value={img.progress} />
+            {img.error && (
+              <p className="text-sm text-destructive">{img.error}</p>
+            )}
+          </div>
+        ))}
 
-        <div className="space-y-2 mt-4">
-          <button
-            onClick={() => handleCompressAll(200)}
-            className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            disabled={isProcessing}
-          >
-            全部压缩到200KB以内
-          </button>
-          <button
-            onClick={() => handleCompressAll(500)}
-            className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            disabled={isProcessing}
-          >
-            全部压缩到500KB以内
-          </button>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm font-medium">
+            <span>总进度</span>
+            <span>{Math.round(totalProgress)}%</span>
+          </div>
+          <Progress value={totalProgress} className="h-2" />
         </div>
-
-        {processingImages.some(img => img.processed) && (
-          <button
-            onClick={handleDownloadAll}
-            className="w-full mt-4 bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600"
-          >
-            下载全部处理后的图片
-          </button>
-        )}
       </div>
+
+      <div className="space-y-2">
+        <Button
+          onClick={() => handleCompressAll(200)}
+          className="w-full"
+          disabled={isProcessing}
+        >
+          压缩到200KB以内
+        </Button>
+        <Button
+          onClick={() => handleCompressAll(500)}
+          className="w-full"
+          disabled={isProcessing}
+        >
+          压缩到500KB以内
+        </Button>
+      </div>
+
+      {allCompleted && (
+        <Button
+          variant="default"
+          onClick={handleDownloadAll}
+          className="w-full bg-green-500 hover:bg-green-600"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          下载全部处理后的图片
+        </Button>
+      )}
     </div>
   );
 };

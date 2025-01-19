@@ -1,20 +1,24 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { ImageProcessor as ImageProcessorUtil, ProcessedImage } from '../utils/imageProcessor';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Upload, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface ImageProcessorProps {
   imageFile: File;
   onReset: () => void;
   onMultipleFiles?: (files: File[]) => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
 }
 
-const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onReset, onMultipleFiles }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const ImageProcessor: React.FC<ImageProcessorProps> = ({ 
+  imageFile, 
+  onReset, 
+  onMultipleFiles,
+  fileInputRef 
+}) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedImage, setProcessedImage] = useState<ProcessedImage | null>(null);
@@ -73,20 +77,11 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
     }
   };
 
-  const handleImageClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      event.target.value = '';
-      onReset();
-      if (files.length === 1) {
-        onMultipleFiles?.([files[0]]);
-      } else if (files.length > 1) {
-        onMultipleFiles?.(Array.from(files));
-      }
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -112,6 +107,8 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
           <div 
             className="relative w-full aspect-[16/9] cursor-pointer group"
             onClick={handleImageClick}
+            role="button"
+            tabIndex={0}
           >
             {previewUrl && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -185,17 +182,8 @@ const ImageProcessorComponent: React.FC<ImageProcessorProps> = ({ imageFile, onR
           </Button>
         )}
       </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        accept="image/*"
-        multiple
-        onChange={handleFileChange}
-      />
     </div>
   );
 };
 
-export default ImageProcessorComponent; 
+export default ImageProcessor; 
