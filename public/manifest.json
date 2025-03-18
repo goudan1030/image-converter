@@ -1,0 +1,16 @@
+{
+  "name": "JPEG Imager",
+  "short_name": "JPEG Imager",
+  "description": "在线图片处理工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+} 
