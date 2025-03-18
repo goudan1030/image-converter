@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
 import { MainNav } from "@/components/ui/nav";
 import { Footer } from "@/components/ui/footer";
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -37,6 +38,20 @@ export default function RootLayout({
           <Footer />
         </div>
         <Toaster />
+        
+        {/* Google Analytics Tracking Code (GA4) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-WYWDMX1YY8"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-WYWDMX1YY8');
+          `}
+        </Script>
       </body>
     </html>
   );
