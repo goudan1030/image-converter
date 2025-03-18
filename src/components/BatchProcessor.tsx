@@ -22,6 +22,7 @@ interface ProcessingImage {
   } | null;
   progress: number;
   error?: string;
+  targetSizeKB?: number;
 }
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) => {
@@ -60,6 +61,14 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
     setTotalProgress(0);
     let completedCount = 0;
 
+    // 设置所有图片的目标大小
+    setProcessingImages(prev => prev.map(img => ({
+      ...img,
+      targetSizeKB,
+      error: undefined, // 重置错误状态
+      progress: 0
+    })));
+
     try {
       // 使用 Promise.all 并行处理所有图片
       await Promise.all(processingImages.map(async (img, index) => {
@@ -74,13 +83,19 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
             selectedFormat // 使用选择的格式
           );
 
+          // 检查是否有错误状态
+          if (result.status === 'error') {
+            throw new Error(result.error || 'compression failed');
+          }
+
           // 更新处理结果
           setProcessingImages(prev => {
             const newImages = [...prev];
             newImages[index] = {
               ...newImages[index],
               processed: result,
-              progress: 100
+              progress: 100,
+              error: undefined
             };
             return newImages;
           });
@@ -94,12 +109,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
             setTotalProgress(100);
           }
         } catch (error) {
-          console.error('处理失败:', error);
+          console.error('processing failed:', error);
           setProcessingImages(prev => {
             const newImages = [...prev];
             newImages[index] = {
               ...newImages[index],
-              error: '处理失败',
+              error: error instanceof Error ? error.message : 'processing failed',
               progress: 0
             };
             return newImages;
@@ -107,10 +122,79 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
         }
       })).catch(err => {
         // 捕获Promise.all可能抛出的错误
-        console.error('批量处理失败:', err);
+        console.error('batch processing failed:', err);
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // 添加单个图片重试功能
+  const handleRetryImage = async (index: number) => {
+    const img = processingImages[index];
+    
+    if (!img.targetSizeKB) {
+      console.error('没有找到目标大小信息，无法重试');
+      return;
+    }
+    
+    // 更新单个图片的处理状态
+    setProcessingImages(prev => {
+      const newImages = [...prev];
+      newImages[index] = {
+        ...newImages[index],
+        progress: 10,
+        error: undefined
+      };
+      return newImages;
+    });
+    
+    try {
+      // 处理单个图片
+      const result = await ImageProcessorUtil.compressToTargetSize(
+        img.file,
+        img.targetSizeKB,
+        selectedFormat
+      );
+      
+      // 检查是否有错误状态
+      if (result.status === 'error') {
+        throw new Error(result.error || 'compression failed');
+      }
+      
+      // 更新处理结果
+      setProcessingImages(prev => {
+        const newImages = [...prev];
+        newImages[index] = {
+          ...newImages[index],
+          processed: result,
+          progress: 100,
+          error: undefined
+        };
+        
+        // 重新计算总进度
+        const newTotalProgress = newImages.reduce((sum, img) => sum + img.progress, 0) / newImages.length;
+        setTotalProgress(newTotalProgress);
+        
+        // 检查是否所有图片都处理完成
+        const allDone = newImages.every(img => img.progress === 100);
+        if (allDone) {
+          setAllCompleted(true);
+        }
+        
+        return newImages;
+      });
+    } catch (error) {
+      console.error('重试失败:', error);
+      setProcessingImages(prev => {
+        const newImages = [...prev];
+        newImages[index] = {
+          ...newImages[index],
+          error: error instanceof Error ? error.message : 'processing failed',
+          progress: 0
+        };
+        return newImages;
+      });
     }
   };
 
@@ -324,10 +408,20 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ imageFiles, onReset }) 
                         </div>
                         <Progress 
                           value={img.progress} 
-                          className={img.progress === 100 ? "bg-muted-foreground/20" : ""}
+                          className={`h-2 ${img.progress === 100 ? "bg-muted-foreground/20" : ""} ${img.error ? "bg-red-200" : ""}`}
                         />
                         {img.error && (
-                          <p className="text-sm text-destructive">{img.error}</p>
+                          <div className="flex flex-col space-y-2">
+                            <p className="text-sm text-destructive">{img.error}</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs border-destructive text-destructive hover:bg-destructive/10"
+                              onClick={() => handleRetryImage(index)}
+                            >
+                              <RefreshCw className="h-3 w-3 mr-1" /> Retry This Image
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ))}

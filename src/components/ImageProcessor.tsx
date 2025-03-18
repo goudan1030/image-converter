@@ -28,6 +28,8 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
   const [progress, setProgress] = useState(0);
   const [selectedFormat, setSelectedFormat] = useState<'original' | 'webp'>('original');
   const [compressionRatio, setCompressionRatio] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastTargetSize, setLastTargetSize] = useState<number | null>(null);
 
   // 改进预览URL生成逻辑
   useEffect(() => {
@@ -91,10 +93,17 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
   const handleCompressToSize = async (targetSizeKB: number, sourceFile: File = imageFile) => {
     console.log("ImageProcessor: 开始压缩图片");
     setIsProcessing(true);
+    setError(null);
+    setLastTargetSize(targetSizeKB);
     const cleanup = simulateProgress();
     
     try {
       const result = await ImageProcessorUtil.compressToTargetSize(sourceFile, targetSizeKB, selectedFormat);
+      
+      if (result.status === 'error') {
+        throw new Error(result.error || '压缩过程发生未知错误');
+      }
+      
       setProcessedImage(result);
       setPreviewUrl(result.url);
       setProgress(100);
@@ -107,9 +116,16 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
       console.log("ImageProcessor: 压缩完成，比率:", Math.round(ratio), "%");
     } catch (error) {
       console.error('压缩失败:', error);
+      setError(error instanceof Error ? error.message : '压缩失败，请尝试重新压缩');
     } finally {
       cleanup();
       setIsProcessing(false);
+    }
+  };
+
+  const handleRetry = () => {
+    if (lastTargetSize) {
+      handleCompressToSize(lastTargetSize);
     }
   };
 
@@ -187,7 +203,7 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Image
                     src={previewUrl}
-                    alt="预览图"
+                    alt="Preview"
                     fill
                     className="object-contain"
                     unoptimized
@@ -199,7 +215,7 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
                 <div className="bg-black/70 text-white px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
                   <Upload className="inline-block mr-2 h-4 w-4" />
-                  更换图片
+                  Change Image
                 </div>
               </div>
             </div>
@@ -208,18 +224,18 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
             <div className="p-4 bg-primary/5 border-t border-muted">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium">原始大小:</span>
+                  <span className="text-sm font-medium">Original Size:</span>
                   <span className="text-sm text-muted-foreground">{formatFileSize(imageFile.size)}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium">处理后:</span>
+                  <span className="text-sm font-medium">Processed:</span>
                   <span className="text-sm text-muted-foreground">{formatFileSize(processedImage.size)}</span>
                 </div>
               </div>
               <div className="mt-2 flex items-center">
-                <span className="text-sm font-medium mr-2">压缩率:</span>
+                <span className="text-sm font-medium mr-2">Compression Ratio:</span>
                 <Badge variant="outline" className={`${compressionRatio > 50 ? 'bg-green-500/10 text-green-600' : 'bg-primary/10 text-primary'}`}>
-                  减小 {compressionRatio}%
+                  Reduced by {compressionRatio}%
                 </Badge>
               </div>
             </div>
@@ -231,7 +247,7 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
           <Card className="border-muted/40 shadow-md">
             <CardContent className="p-6 space-y-6">
               <div>
-                <h4 className="text-sm font-medium mb-3">选择输出格式</h4>
+                <h4 className="text-sm font-medium mb-3">Output Format</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     variant={selectedFormat === 'original' ? 'default' : 'outline'}
@@ -286,6 +302,29 @@ const ImageProcessor: React.FC<ImageProcessorProps> = ({
               <p className="text-sm text-muted-foreground text-center">
                 Processing... {progress}%
               </p>
+            </Card>
+          )}
+
+          {/* 错误显示及重试按钮 */}
+          {error && (
+            <Card className="border-destructive p-4 space-y-4">
+              <div className="flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <h4 className="text-sm font-medium text-destructive">Processing Failed</h4>
+              </div>
+              <p className="text-sm text-destructive/80">{error}</p>
+              <Button
+                variant="outline"
+                onClick={handleRetry}
+                className="w-full border-destructive text-destructive hover:bg-destructive/10"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry Compression
+              </Button>
             </Card>
           )}
 
