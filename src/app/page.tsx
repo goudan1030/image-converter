@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Image, Layers, Zap, Lock, Clock, FileImage, Sparkles, ArrowUpIcon } from "lucide-react";
+import { Banner } from '@/components/ui/banner';
 
 export default function Home() {
   // 用于ImageUploader组件的图片状态
@@ -222,33 +223,13 @@ export default function Home() {
         onChange={handleFileInputChange}
       />
       
-      {/* 英雄区域 */}
-      <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-to-b from-primary/10 to-background">
-        <div className="container relative z-10">
-          <div className="max-w-3xl mx-auto text-center space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-              Powerful Image Processing Tool<br />
-              <span className="text-primary">Simple to Use</span>
-            </h1>
-            <p className="text-xl text-muted-foreground md:text-2xl mb-8">
-              Easily compress, convert and process images in your browser, no software installation required
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Button size="lg" className="text-lg" onClick={handleStartClick}>
-                Start Processing <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button size="lg" variant="outline" className="text-lg" onClick={scrollToProcessor}>
-                Learn More
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="absolute inset-0 opacity-10 overflow-hidden">
-          <div className="absolute -right-5 top-1/4 w-96 h-96 bg-primary rounded-full blur-3xl"/>
-          <div className="absolute -left-5 bottom-1/4 w-96 h-96 bg-primary/70 rounded-full blur-3xl"/>
-        </div>
-      </section>
-      
+      {/* 使用新的Banner组件替换原有的英雄区域 */}
+      <Banner 
+        onGetStarted={handleStartClick}
+        onLearnMore={scrollToProcessor}
+        videoSrc="/videos/banner-bg.webm"
+      />
+
       {/* 处理区域 */}
       <section ref={processorRef} className="py-16 bg-background" id="tools">
         <div className="container space-y-8">
